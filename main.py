@@ -101,6 +101,13 @@ def progress_bar(frac: float, width: int = 30) -> str:
     filled = int(round(frac * width))
     return "[" + "#" * filled + "-" * (width - filled) + "]"
 
+def total_demo_left_secs(current_index: int, remaining_current: float) -> int:
+    """Compute total remaining seconds for the entire demo.
+    Includes current segment's remaining time (ceil) plus all future segments' durations.
+    """
+    future = sum(d for _, d in SEGMENTS[current_index+1:])
+    return max(0, int(math.ceil(max(0.0, remaining_current))) + future)
+
 def clear_line():
     # Move cursor to line start and clear to end
     sys.stdout.write("\r\033[K")
@@ -187,7 +194,8 @@ def main():
                     frac_done = 1.0 - max(0.0, remaining) / duration if duration > 0 else 1.0
                     bar = progress_bar(frac_done)
                     status = "PAUSED" if paused else "RUNNING"
-                    draw_status_line(f"{bar}  {format_time(remaining)} <- {format_time(duration)} [{status}]")
+                    total_left = total_demo_left_secs(i, remaining)
+                    draw_status_line(f"{bar}  {format_time(remaining)} <- {format_time(duration)} [{status}] | Demo Left: {format_time(total_left)}")
 
                     # Check keys (non-blocking)
                     ch = getch()
@@ -229,7 +237,9 @@ def main():
                 if remaining <= 0:
                     # Segment complete: show final completed line once
                     bar_complete = progress_bar(1.0)
-                    draw_status_line(f"{bar_complete}  00:00 <- {format_time(duration)} [COMPLETED]")
+                    # After completion, the remaining total excludes this segment
+                    total_left_after = sum(d for _, d in SEGMENTS[i+1:])
+                    draw_status_line(f"{bar_complete}  00:00 <- {format_time(duration)} [COMPLETED] | Demo Left: {format_time(total_left_after)}")
                     beep(muted)
                     print("\n✅ Segment complete.")
                     i += 1
