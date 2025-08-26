@@ -41,6 +41,22 @@ SEGMENTS = [
 ]
 ```
 
+## Output
+
+```
+Demo Timer — total planned time: 06:00
+Press any listed hotkey while this window is focused.
+
+Segment 1/7: Introduction
+Controls: Space=Pause/Resume  n=Next  p=Prev  +=+10s  -=-10s  m=Mute  q=Quit
+[##############################]  00:00 <- 01:00 [COMPLETED] | Demo Left: 05:00
+✅ Segment complete.
+
+Segment 2/7: Overview
+Controls: Space=Pause/Resume  n=Next  p=Prev  +=+10s  -=-10s  m=Mute  q=Quit
+[########----------------------]  00:32 <- 00:45 [RUNNING] | Demo Left: 04:48
+```
+
 ## Notes
 
 - The app uses ANSI escape sequences for in-place updates. Windows Terminal and VS Code terminal fully support this. On very old terminals, it will still work but updates may not be as smooth.
