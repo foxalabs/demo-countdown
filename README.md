@@ -5,8 +5,7 @@ A simple, cross‑platform terminal countdown timer for demos and talks. Step th
 ## Features
 
 - Multi-segment countdown with names and durations
-- Smooth, flicker-free in-place progress bar
-- Shows remaining time and total for the segment (e.g. `01:09 <- 01:30`)
+- Shows remaining time and total for the segment
 - Hotkeys: pause/resume, next/prev, +/- 10s, mute beep, quit
 - Works on Windows, macOS, and Linux (standard library only)
 
