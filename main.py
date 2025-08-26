@@ -82,8 +82,26 @@ def load_segments(path: str) -> list[tuple[str, int]]:
         pass
     return segments
 
+def find_segments_file() -> str:
+    candidates = []
+    # 1) Current working directory
+    candidates.append(os.path.join(os.getcwd(), "segments.txt"))
+    # 2) Directory of the executable when frozen
+    if getattr(sys, "frozen", False):
+        candidates.append(os.path.join(os.path.dirname(sys.executable), "segments.txt"))
+        # 3) Bundled data directory (_MEIPASS) for PyInstaller
+        base = getattr(sys, "_MEIPASS", None)
+        if base:
+            candidates.append(os.path.join(base, "segments.txt"))
+    # 4) Source file directory (dev mode)
+    candidates.append(os.path.join(os.path.dirname(__file__), "segments.txt"))
+    for p in candidates:
+        if p and os.path.exists(p):
+            return p
+    return candidates[-1]
+
 # Prefer external config if available
-_SEGMENTS_FILE = os.path.join(os.path.dirname(__file__), "segments.txt")
+_SEGMENTS_FILE = find_segments_file()
 SEGMENTS = load_segments(_SEGMENTS_FILE)
 if not SEGMENTS:
     SEGMENTS = [

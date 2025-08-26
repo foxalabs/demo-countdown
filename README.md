@@ -102,6 +102,30 @@ Controls: Space=Pause/Resume  n=Next  p=Prev  +=+10s  -=-10s  m=Mute  q=Quit
 - GUI mode requires `pygame`.
 - If `+`/`-` don’t seem to work in the GUI, ensure the window is focused. On some keyboard layouts, use the numpad `+`/`-` keys.
 
+## Development setup and building a Windows .exe
+
+Set up a local virtual environment (Windows PowerShell):
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+Build a standalone GUI .exe with PyInstaller:
+
+```powershell
+pip install pyinstaller
+pyinstaller --noconsole --onefile --name demo-countdown-gui .\main-gui.py
+```
+
+The executable will be in `dist\demo-countdown-gui.exe`.
+
+Using segments.txt with the .exe:
+- Place `segments.txt` next to the `.exe` (recommended), or in the current working directory.
+- You can also embed a default via `--add-data`: `--add-data "segments.txt;."`
+
 ## Contributing
 
 Issues and pull requests are welcome. Please keep the standard library dependency and cross-platform support.
