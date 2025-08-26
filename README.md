@@ -2,6 +2,9 @@
 
 A simple, cross‑platform terminal countdown timer for demos and talks. Step through named segments, see a progress bar and remaining time, and control the flow with quick hotkeys.
 
+
+![Demo Countdown GUI](images/screen1.png)
+
 ## Features
 
 - Multi-segment countdown with names and durations
