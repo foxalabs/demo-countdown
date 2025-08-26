@@ -264,9 +264,7 @@ def run_gui():
         # Drawing
         screen.fill(BG)
 
-        # Title
-        draw_text(screen, "Demo Countdown", title_font, FG, (24, 18))
-
+        # All completed?
         if i >= total_segments:
             # Done screen
             done_msg = "All segments finished. Good show!"
@@ -276,8 +274,11 @@ def run_gui():
             clock.tick(30)
             continue
 
-        # Current segment info
-        seg_title = f"Segment {i+1}/{total_segments}: {SEGMENTS[i][0]}"
+        # Title = current segment name (eye-catching)
+        draw_text(screen, SEGMENTS[i][0], title_font, FG, (24, 18))
+
+        # Current segment info (index/total only to avoid duplication)
+        seg_title = f"Segment {i+1}/{total_segments}"
         draw_text(screen, seg_title, h2_font, FG, (24, 72))
 
         # Progress bar area
