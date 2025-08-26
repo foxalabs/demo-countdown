@@ -13,6 +13,7 @@ A simple, cross‑platform terminal countdown timer for demos and talks. Step th
 - Hotkeys: pause/resume, next/prev, +/- 10s, mute beep, quit
 - CLI works on Windows, macOS, and Linux (standard library only)
 - Optional GUI for Windows using pygame
+ - External segment configuration via `segments.txt`
 
 ## Usage (CLI)
 
@@ -59,15 +60,24 @@ python .\main-gui.py
 
 ## Configure segments
 
-Edit the `SEGMENTS` list at the top of `main.py`:
+Edit `segments.txt` in this folder. You can use simple CSV with an optional header. Duration can be seconds, `mm:ss`, or `hh:mm:ss`:
 
 ```python
-SEGMENTS = [
-    ("Intro", 90),
-    ("Deep dive", 300),
-    ("Q&A", 120),
-]
+name,duration
+Introduction,60
+Overview,45
+Feature Demonstration,1:30
+Technical Details,01:15
+Q&A Session,30s
+Summary,0:40
+Closing Remarks,20
 ```
+
+Notes:
+- Lines starting with `#` are ignored (comments).
+- Header row is optional; if present, use columns `name` and `duration`.
+- Duration accepts seconds (e.g., `90`), `mm:ss` (e.g., `1:30`), or `hh:mm:ss` (e.g., `0:01:15`).
+- If `segments.txt` is missing or empty, sensible defaults are used.
 
 ## Output
 

@@ -18,18 +18,78 @@ import sys
 import time
 import math
 import platform
+import os
+import csv
 
 # ---- CONFIGURE YOUR SEGMENTS HERE ----
 # (name, duration_in_seconds)
-SEGMENTS = [
-    ("Introduction", 60),
-    ("Overview", 45),
-    ("Feature Demonstration", 90),
-    ("Technical Details", 75),
-    ("Q&A Session", 30),
-    ("Summary", 40),
-    ("Closing Remarks", 20),
-]
+def parse_duration(text: str) -> int:
+    t = text.strip()
+    if not t:
+        raise ValueError("empty duration")
+    if t.endswith("s") or t.endswith("S"):
+        t = t[:-1]
+    if ":" in t:
+        parts = [int(p) for p in t.split(":")]
+        if len(parts) == 2:
+            m, s = parts
+            return m * 60 + s
+        if len(parts) == 3:
+            h, m, s = parts
+            return h * 3600 + m * 60 + s
+        raise ValueError("invalid time format")
+    return int(t)
+
+def load_segments(path: str) -> list[tuple[str, int]]:
+    segments: list[tuple[str, int]] = []
+    if not os.path.exists(path):
+        return segments
+    try:
+        with open(path, "r", encoding="utf-8", newline="") as f:
+            lines = [ln for ln in f if ln.strip() and not ln.lstrip().startswith("#")]
+        if not lines:
+            return segments
+        reader = csv.reader(lines)
+        rows = list(reader)
+        if not rows:
+            return segments
+        first = [c.strip().lower() for c in rows[0]]
+        if ("duration" in first) and ("name" in first or "segment" in first or "title" in first):
+            header_map = {name: idx for idx, name in enumerate(first)}
+            start_idx = 1
+        else:
+            header_map = None
+            start_idx = 0
+        for row in rows[start_idx:]:
+            if not row:
+                continue
+            try:
+                if header_map:
+                    name = row[header_map.get("name", header_map.get("segment", header_map.get("title", 0)))].strip()
+                    dur_text = row[header_map["duration"]].strip()
+                else:
+                    name = row[0].strip()
+                    dur_text = row[1].strip() if len(row) > 1 else ""
+                secs = parse_duration(dur_text)
+                segments.append((name, secs))
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return segments
+
+_SEGMENTS_FILE = os.path.join(os.path.dirname(__file__), "segments.txt")
+SEGMENTS = load_segments(_SEGMENTS_FILE)
+if not SEGMENTS:
+    SEGMENTS = [
+        ("Introduction", 60),
+        ("Overview", 45),
+        ("Feature Demonstration", 90),
+        ("Technical Details", 75),
+        ("Q&A Session", 30),
+        ("Summary", 40),
+        ("Closing Remarks", 20),
+    ]
 
 IS_WINDOWS = platform.system().lower().startswith("win")
 
