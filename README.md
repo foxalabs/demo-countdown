@@ -6,10 +6,12 @@ A simple, cross‑platform terminal countdown timer for demos and talks. Step th
 
 - Multi-segment countdown with names and durations
 - Shows remaining time and total for the segment
+- Live "Demo Left" total across all remaining segments
 - Hotkeys: pause/resume, next/prev, +/- 10s, mute beep, quit
-- Works on Windows, macOS, and Linux (standard library only)
+- CLI works on Windows, macOS, and Linux (standard library only)
+- Optional GUI for Windows using pygame
 
-## Usage
+## Usage (CLI)
 
 1. Ensure you have Python 3.8+ installed.
 2. Clone this repo and run the script:
@@ -27,6 +29,30 @@ python .\main.py
 - -: Subtract 10s from current segment (floors at 5s)
 - m: Mute/unmute beep
 - q: Quit
+
+## Usage (GUI on Windows)
+
+1. Install pygame if needed:
+
+```powershell
+pip install pygame
+```
+
+2. Run the GUI:
+
+```powershell
+python .\main-gui.py
+```
+
+3. Hotkeys (window focused):
+
+- Space: Pause/Resume
+- n: Next segment
+- p: Previous segment (restarts that segment)
+- + or Numpad +: Add 10s to current segment
+- - or Numpad -: Subtract 10s from current segment (floors at 5s)
+- m: Mute/unmute beep
+- q or Esc: Quit
 
 ## Configure segments
 
@@ -58,8 +84,10 @@ Controls: Space=Pause/Resume  n=Next  p=Prev  +=+10s  -=-10s  m=Mute  q=Quit
 
 ## Notes
 
-- The app uses ANSI escape sequences for in-place updates. Windows Terminal and VS Code terminal fully support this. On very old terminals, it will still work but updates may not be as smooth.
-- The beep uses `winsound` on Windows and the terminal bell elsewhere. You can toggle it with `m`.
+- CLI mode uses ANSI escape sequences for in-place updates. Windows Terminal and VS Code terminal fully support this. On very old terminals, it will still work but updates may not be as smooth.
+- The beep uses `winsound` on Windows and the terminal bell elsewhere (CLI). In GUI mode, beep uses `winsound` on Windows only.
+- GUI mode requires `pygame`.
+- If `+`/`-` don’t seem to work in the GUI, ensure the window is focused. On some keyboard layouts, use the numpad `+`/`-` keys.
 
 ## Contributing
 
