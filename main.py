@@ -24,16 +24,13 @@ import platform
 # ---- CONFIGURE YOUR SEGMENTS HERE ----
 # (name, duration_in_seconds)
 SEGMENTS = [
-    ("Document Groker (opener)", 90),
-    ("Scenario (Intro)", 40),
-    ("Solution – Stakeholders (name-drop)", 10),
-    ("Agent Library", 50),
-    ("Connector Library", 40),
-    ("Architecture (BPMN & blocks)", 60),
-    ("Build setup (parallel + unit checks)", 20),
-    ("Compliance (forms, transparency, standards)", 60),
-    ("Deployment (Go/No-Go)", 20),
-    ("Demo of the thing we built (closer)", 90),
+    ("Introduction", 60),
+    ("Overview", 45),
+    ("Feature Demonstration", 90),
+    ("Technical Details", 75),
+    ("Q&A Session", 30),
+    ("Summary", 40),
+    ("Closing Remarks", 20),
 ]
 
 # ---- IMPLEMENTATION BELOW ----
