@@ -252,7 +252,7 @@ def main():
             except Exception:
                 pass
 
-        print("\n🎉 All segments finished. Good show!")
+        print("\nAll segments finished. Good show!")
 
 if __name__ == "__main__":
     try:
