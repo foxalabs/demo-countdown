@@ -209,7 +209,12 @@ def run_gui():
     ed_editing = False
     ed_buffer = ""
     ed_caret = 0
-    ed_message = "Esc/E: exit • Arrows: move • Left/Right/Tab: switch column • Enter/F2: edit • A: add • Del: delete • S: save"
+    ed_default_message = (
+        "Esc/E: exit • Arrows: move • Left/Right: switch column • Tab: next cell • "
+        "Enter/F2: edit • A: add • Del: delete • S: save"
+    )
+    ed_message = ""
+    ed_msg_expires = 0.0
 
     # Set initial caption to segment name if available
     if total_segments > 0:
@@ -273,6 +278,32 @@ def run_gui():
                                 pass
                             ed_buffer = ""
                             ed_caret = 0
+                            # Auto-save on Enter and reload from disk
+                            try:
+                                with open(_SEGMENTS_FILE, "w", encoding="utf-8", newline="") as f:
+                                    f.write("name,duration\n")
+                                    for nm2, secs2 in SEGMENTS:
+                                        m2, s2 = divmod(int(secs2), 60)
+                                        f.write(f"{nm2},{m2:02d}:{s2:02d}\n")
+                                reloaded = load_segments(_SEGMENTS_FILE)
+                                if reloaded:
+                                    SEGMENTS[:] = reloaded
+                                total_segments = len(SEGMENTS)
+                                ed_sel_row = max(0, min(ed_sel_row, total_segments - 1))
+                                i = max(0, min(i, total_segments - 1)) if total_segments > 0 else 0
+                                duration = float(SEGMENTS[i][1]) if total_segments > 0 else 0
+                                remaining = float(duration)
+                                paused = True
+                                completed_until = 0.0
+                                try:
+                                    if total_segments > 0:
+                                        _pg.display.set_caption(f"{SEGMENTS[i][0]} — Demo Countdown")
+                                except Exception:
+                                    pass
+                                ed_message = f"Saved + reloaded: {_SEGMENTS_FILE}"
+                                ed_msg_expires = time.time() + 1.0
+                            except Exception as e:
+                                ed_message = f"Save failed: {e}"
                         elif key == pygame.K_ESCAPE:
                             # Cancel edit
                             ed_editing = False
@@ -445,6 +476,7 @@ def run_gui():
                                 except Exception:
                                     pass
                                 ed_message = f"Saved + reloaded: {_SEGMENTS_FILE}"
+                                ed_msg_expires = time.time() + 1.0
                             except Exception as e:
                                 ed_message = f"Save failed: {e}"
                 elif ev.type == pygame.TEXTINPUT and ed_editing:
@@ -552,7 +584,8 @@ def run_gui():
         if editor_mode:
             # Editor screen
             draw_text(screen, "Segment Editor", title_font, FG, (24, 18))
-            draw_text(screen, ed_message, small_font, MUTE, (24, 56))
+            msg_now = ed_message if (time.time() < ed_msg_expires) else ed_default_message
+            draw_text(screen, msg_now, small_font, MUTE, (24, 56))
             x_num, x_name, x_dur = 24, 80, 650
             draw_text(screen, "#", small_font, FG, (x_num, 86))
             draw_text(screen, "Name", small_font, FG, (x_name, 86))
