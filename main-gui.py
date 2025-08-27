@@ -5,13 +5,14 @@ Demo Segment Countdown Timer (GUI)
 - Windows-focused; requires pygame (pip install pygame).
 
 Hotkeys (window focused):
-  Space  : Pause/Resume
-  n      : Next segment
-  p      : Previous segment
-  + / =  : Add 10s to current segment
-  - / _  : Subtract 10s (floors at 5s)
-  m      : Mute/unmute beep
-  q / Esc: Quit
+    Space  : Pause/Resume
+    n      : Next segment
+    p      : Previous segment
+    + / =  : Add 10s to current segment
+    - / _  : Subtract 10s (floors at 5s)
+    m      : Mute/unmute beep
+    e      : Edit segments (toggle editor)
+    q / Esc: Quit (Esc exits editor first)
 """
 
 import sys
@@ -201,6 +202,14 @@ def run_gui():
     demo_start_ts = 0.0
     demo_end_ts = 0.0
 
+    # Simple in-app editor state
+    editor_mode = False
+    ed_sel_row = 0
+    ed_sel_col = 1  # 1=name, 2=duration
+    ed_editing = False
+    ed_buffer = ""
+    ed_message = "Esc/E: exit • Arrows: move • Left/Right/Tab: switch column • Enter/F2: edit • A: add • Del: delete • S: save"
+
     # Set initial caption to segment name if available
     if total_segments > 0:
         try:
@@ -215,57 +224,153 @@ def run_gui():
         dt = now - last_time
         last_time = now
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            elif event.type == pygame.KEYDOWN:
-                key = event.key
-                if key in (pygame.K_ESCAPE, pygame.K_q):
+        # Pump events once per frame and route by mode
+        events = pygame.event.get()
+
+        if editor_mode:
+            # Editor mode input
+            for ev in events:
+                if ev.type == pygame.QUIT:
                     running = False
-                elif key == pygame.K_SPACE:
-                    if total_segments > 0 and time.time() >= completed_until:
-                        paused = not paused
-                        # On first start (resume), arm the elapsed timer
-                        if not paused and not demo_started:
-                            demo_started = True
-                            demo_start_ts = time.time()
-                elif key in (pygame.K_n,):
-                    # Next segment: mark completed then advance after short delay
-                    if i < total_segments:
-                        beep(muted)
-                        status = "COMPLETED"
-                        remaining = 0.0
-                        completed_until = time.time() + 0.6
-                elif key in (pygame.K_p,):
-                    # Previous segment (restart previous)
-                    if i > 0:
-                        beep(muted)
-                        i -= 1
-                        duration = float(SEGMENTS[i][1])
-                        remaining = duration
-                        paused = False
-                        status = "RUNNING"
-                        completed_until = 0.0
-                        try:
-                            pygame.display.set_caption(f"{SEGMENTS[i][0]} — Demo Countdown")
-                        except Exception:
-                            pass
-                elif (event.unicode == '+' or key == pygame.K_KP_PLUS):
-                    # Add 10s
-                    if i < total_segments and time.time() >= completed_until:
-                        duration += 10
-                        remaining += 10
-                        beep(muted)
-                elif (event.unicode == '-' or key == pygame.K_KP_MINUS):
-                    # Subtract 10s but floor at 5s total
-                    if i < total_segments and time.time() >= completed_until:
-                        if duration > 5:
-                            cut = min(10, duration - 5)
-                            duration -= cut
-                            remaining = min(remaining, duration)
+                elif ev.type == pygame.KEYDOWN:
+                    key = ev.key
+                    if key in (pygame.K_ESCAPE, pygame.K_e):
+                        # Exit editor (don't quit app)
+                        editor_mode = False
+                        break
+                    if ed_editing:
+                        if key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                            if 0 <= ed_sel_row < total_segments:
+                                nm, secs = SEGMENTS[ed_sel_row]
+                                if ed_sel_col == 1:
+                                    nm = ed_buffer.strip() or nm
+                                else:
+                                    try:
+                                        secs = parse_duration(ed_buffer.strip())
+                                    except Exception:
+                                        pass
+                                SEGMENTS[ed_sel_row] = (nm, secs)
+                                if ed_sel_row == i:
+                                    duration = float(secs)
+                                    remaining = min(remaining, duration)
+                                    # If renaming current, update caption
+                                    try:
+                                        import pygame as _pg
+                                        _pg.display.set_caption(f"{nm} — Demo Countdown")
+                                    except Exception:
+                                        pass
+                            ed_editing = False
+                            try:
+                                import pygame as _pg
+                                _pg.key.stop_text_input()
+                            except Exception:
+                                pass
+                        elif key == pygame.K_BACKSPACE:
+                            ed_buffer = ed_buffer[:-1]
+                        else:
+                            ch = ev.unicode
+                            if ch:
+                                ed_buffer += ch
+                    else:
+                        if key == pygame.K_UP:
+                            ed_sel_row = max(0, ed_sel_row - 1)
+                        elif key == pygame.K_DOWN:
+                            ed_sel_row = min(total_segments - 1, ed_sel_row + 1)
+                        elif key in (pygame.K_LEFT, pygame.K_RIGHT, pygame.K_TAB):
+                            ed_sel_col = 1 if ed_sel_col == 2 else 2
+                        elif key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_F2):
+                            cur = SEGMENTS[ed_sel_row][0 if ed_sel_col == 1 else 1]
+                            ed_buffer = str(cur)
+                            ed_editing = True
+                            try:
+                                import pygame as _pg
+                                _pg.key.start_text_input()
+                            except Exception:
+                                pass
+                        elif key == pygame.K_a:
+                            SEGMENTS.insert(ed_sel_row + 1, ("New Segment", 60))
+                            total_segments = len(SEGMENTS)
+                        elif key in (pygame.K_DELETE,) and total_segments > 1:
+                            if ed_sel_row < i:
+                                i -= 1
+                            elif ed_sel_row == i:
+                                if i < total_segments - 1:
+                                    i = i
+                                else:
+                                    i = max(0, i - 1)
+                            del SEGMENTS[ed_sel_row]
+                            total_segments = len(SEGMENTS)
+                            ed_sel_row = max(0, min(ed_sel_row, total_segments - 1))
+                            duration = float(SEGMENTS[i][1]) if total_segments else 0
+                            remaining = float(duration)
+                            paused = True
+                        elif key == pygame.K_s:
+                            try:
+                                with open(_SEGMENTS_FILE, "w", encoding="utf-8", newline="") as f:
+                                    f.write("name,duration\n")
+                                    for nm, secs in SEGMENTS:
+                                        m, s = divmod(int(secs), 60)
+                                        f.write(f"{nm},{m:02d}:{s:02d}\n")
+                                ed_message = f"Saved: {_SEGMENTS_FILE}"
+                            except Exception as e:
+                                ed_message = f"Save failed: {e}"
+                elif ev.type == pygame.TEXTINPUT and ed_editing:
+                    # Robust text input for names/durations
+                    ed_buffer += ev.text
+        else:
+            # Normal play mode input
+            for event in events:
+                if event.type == pygame.QUIT:
+                    running = False
+                elif event.type == pygame.KEYDOWN:
+                    key = event.key
+                    if key in (pygame.K_ESCAPE, pygame.K_q):
+                        running = False
+                    elif key == pygame.K_SPACE:
+                        if total_segments > 0 and time.time() >= completed_until:
+                            paused = not paused
+                            if not paused and not demo_started:
+                                demo_started = True
+                                demo_start_ts = time.time()
+                    elif key in (pygame.K_n,):
+                        if i < total_segments:
                             beep(muted)
-                elif key in (pygame.K_m,):
-                    muted = not muted
+                            status = "COMPLETED"
+                            remaining = 0.0
+                            completed_until = time.time() + 0.6
+                    elif key in (pygame.K_p,):
+                        if i > 0:
+                            beep(muted)
+                            i -= 1
+                            duration = float(SEGMENTS[i][1])
+                            remaining = duration
+                            paused = False
+                            status = "RUNNING"
+                            completed_until = 0.0
+                            try:
+                                pygame.display.set_caption(f"{SEGMENTS[i][0]} — Demo Countdown")
+                            except Exception:
+                                pass
+                    elif (event.unicode == '+' or key == pygame.K_KP_PLUS):
+                        if i < total_segments and time.time() >= completed_until:
+                            duration += 10
+                            remaining += 10
+                            beep(muted)
+                    elif (event.unicode == '-' or key == pygame.K_KP_MINUS):
+                        if i < total_segments and time.time() >= completed_until:
+                            if duration > 5:
+                                cut = min(10, duration - 5)
+                                duration -= cut
+                                remaining = min(remaining, duration)
+                                beep(muted)
+                    elif key in (pygame.K_m,):
+                        muted = not muted
+                    elif key in (pygame.K_e,):
+                        editor_mode = True
+                        paused = True
+                        ed_sel_row = max(0, min(i, total_segments - 1))
+                        ed_sel_col = 1
+                        ed_editing = False
 
         # Time update (only when not in the completed flash window)
         if total_segments > 0 and completed_until == 0.0:
@@ -306,6 +411,38 @@ def run_gui():
 
         # Drawing
         screen.fill(BG)
+
+        # Editor rendering overrides normal UI
+        if editor_mode:
+            # Editor screen
+            draw_text(screen, "Segment Editor", title_font, FG, (24, 18))
+            draw_text(screen, ed_message, small_font, MUTE, (24, 56))
+            x_num, x_name, x_dur = 24, 80, 650
+            draw_text(screen, "#", small_font, FG, (x_num, 86))
+            draw_text(screen, "Name", small_font, FG, (x_name, 86))
+            draw_text(screen, "Duration", small_font, FG, (x_dur, 86))
+            row_y = 110
+            row_h = 30
+            for ridx, (nm, secs) in enumerate(SEGMENTS):
+                is_sel = (ridx == ed_sel_row)
+                color = ACCENT_DIM if is_sel else TL_BG
+                pygame.draw.rect(screen, color, pygame.Rect(20, row_y - 4, WIDTH - 40, row_h), border_radius=6)
+                draw_text(screen, str(ridx + 1), small_font, FG, (x_num, row_y))
+                if is_sel and ed_editing and ed_sel_col == 1:
+                    draw_text(screen, ed_buffer + "|", small_font, FG, (x_name, row_y))
+                else:
+                    draw_text(screen, nm, small_font, FG, (x_name, row_y))
+                m, s = divmod(int(secs), 60)
+                dtxt = f"{m:02d}:{s:02d}"
+                if is_sel and ed_editing and ed_sel_col == 2:
+                    draw_text(screen, ed_buffer + "|", small_font, FG, (x_dur, row_y))
+                else:
+                    draw_text(screen, dtxt, small_font, FG, (x_dur, row_y))
+                row_y += row_h
+
+            pygame.display.flip()
+            clock.tick(60)
+            continue
 
         # All completed?
         if i >= total_segments:
@@ -436,7 +573,7 @@ def run_gui():
         screen.set_clip(prev_clip)
 
         # Controls
-        controls = "Space=Pause  n=Next  p=Prev  +=+10s  -=-10s  m=Mute  q/Esc=Quit"
+        controls = "Space=Pause  n=Next  p=Prev  +=+10s  -=-10s  m=Mute  e=Edit  q/Esc=Quit"
         draw_text(screen, controls, small_font, MUTE, (24, HEIGHT - 36))
 
         # Mute indicator
