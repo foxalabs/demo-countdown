@@ -196,6 +196,11 @@ def run_gui():
     TIMELINE_SCROLL_SMOOTH = 0.15
     timeline_scroll_x = 0.0
 
+    # Elapsed (including pauses) tracking
+    demo_started = False
+    demo_start_ts = 0.0
+    demo_end_ts = 0.0
+
     # Set initial caption to segment name if available
     if total_segments > 0:
         try:
@@ -220,6 +225,10 @@ def run_gui():
                 elif key == pygame.K_SPACE:
                     if total_segments > 0 and time.time() >= completed_until:
                         paused = not paused
+                        # On first start (resume), arm the elapsed timer
+                        if not paused and not demo_started:
+                            demo_started = True
+                            demo_start_ts = time.time()
                 elif key in (pygame.K_n,):
                     # Next segment: mark completed then advance after short delay
                     if i < total_segments:
@@ -272,6 +281,12 @@ def run_gui():
             if i >= total_segments:
                 # Finished all
                 i = total_segments
+                if demo_end_ts == 0.0 and demo_started:
+                    demo_end_ts = now_ts
+                try:
+                    pygame.display.set_caption("Summary — Demo Countdown")
+                except Exception:
+                    pass
             else:
                 duration = float(SEGMENTS[i][1])
                 remaining = duration
@@ -294,10 +309,19 @@ def run_gui():
 
         # All completed?
         if i >= total_segments:
-            # Done screen
-            done_msg = "All segments finished. Good show!"
-            draw_text(screen, done_msg, h2_font, OK, (24, 80))
-            draw_text(screen, "Press Q or Esc to quit", small_font, FG, (24, 120))
+            # Summary screen
+            draw_text(screen, "Summary", title_font, OK, (24, 18))
+            planned_total = sum(d for _, d in SEGMENTS)
+            final_elapsed = max(0.0, ((demo_end_ts or now) - demo_start_ts)) if demo_started else 0.0
+            delta_secs = final_elapsed - planned_total
+            delta_color = WARN if delta_secs > 0 else (OK if delta_secs < 0 else FG)
+
+            draw_text(screen, f"Segments: {total_segments}", h2_font, FG, (24, 72))
+            draw_text(screen, f"Planned total: {format_time(planned_total)}", h2_font, FG, (24, 110))
+            draw_text(screen, f"Elapsed total: {format_time(final_elapsed)}", h2_font, FG, (24, 148))
+            sign = "+" if delta_secs > 0 else ("" if delta_secs == 0 else "-")
+            draw_text(screen, f"Delta: {sign}{format_time(abs(delta_secs))}", h2_font, delta_color, (24, 186))
+            draw_text(screen, "Press Q or Esc to quit", small_font, FG, (24, 230))
             pygame.display.flip()
             clock.tick(30)
             continue
@@ -316,7 +340,12 @@ def run_gui():
 
         # Times and status
         total_left = total_demo_left_secs(i, remaining)
-        times_line = f"{format_time(remaining)} <- {format_time(duration)}    | Demo Left: {format_time(total_left)}"
+        # Elapsed time including pauses (wall clock since first start)
+        elapsed_secs = max(0.0, ((demo_end_ts or now) - demo_start_ts)) if demo_started else 0.0
+        times_line = (
+            f"{format_time(remaining)} <- {format_time(duration)}    | "
+            f"Demo Left: {format_time(total_left)}    | Elapsed: {format_time(elapsed_secs)}"
+        )
         draw_text(screen, times_line, mono_font, FG, (24, 190))
 
         status_color = OK if status == "RUNNING" else (WARN if status == "COMPLETED" else ACCENT)
