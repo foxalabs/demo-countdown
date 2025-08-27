@@ -150,6 +150,13 @@ def run_gui():
     OK = (120, 200, 120)
     MUTE = (180, 180, 180)
 
+    # Timeline colors
+    TL_BG = (28, 30, 36)
+    TL_SEG = (50, 56, 66)
+    TL_SEG_DONE = (70, 140, 100)
+    TL_SEG_CURRENT = (80, 140, 200)
+    TL_MARK = (245, 245, 245)
+
     # Fonts
     try:
         title_font = pygame.font.SysFont("Segoe UI Semibold", 36)
@@ -176,13 +183,26 @@ def run_gui():
 
     total_segments = len(SEGMENTS)
     i = 0
-    paused = False
+    paused = True  # start paused; Space toggles start/stop
     muted = False
     status = "RUNNING"
     duration = SEGMENTS[i][1] if total_segments else 0
     remaining = float(duration)
     last_time = time.time()
     completed_until = 0.0  # timestamp; if > now, show completed state
+
+    # Timeline state
+    TIMELINE_PX_PER_SEC = 1.5
+    TIMELINE_SCROLL_SMOOTH = 0.15
+    timeline_scroll_x = 0.0
+
+    # Set initial caption to segment name if available
+    if total_segments > 0:
+        try:
+            import pygame as _pg
+            _pg.display.set_caption(f"{SEGMENTS[i][0]} — Demo Countdown")
+        except Exception:
+            pass
 
     running = True
     while running:
@@ -217,6 +237,10 @@ def run_gui():
                         paused = False
                         status = "RUNNING"
                         completed_until = 0.0
+                        try:
+                            pygame.display.set_caption(f"{SEGMENTS[i][0]} — Demo Countdown")
+                        except Exception:
+                            pass
                 elif (event.unicode == '+' or key == pygame.K_KP_PLUS):
                     # Add 10s
                     if i < total_segments and time.time() >= completed_until:
@@ -253,6 +277,10 @@ def run_gui():
                 remaining = duration
                 paused = False
                 status = "RUNNING"
+                try:
+                    pygame.display.set_caption(f"{SEGMENTS[i][0]} — Demo Countdown")
+                except Exception:
+                    pass
             completed_until = 0.0
 
         # Handle segment completion: arm a single flash only once
@@ -274,7 +302,7 @@ def run_gui():
             clock.tick(30)
             continue
 
-        # Title = current segment name (eye-catching)
+    # Title = current segment name (eye-catching)
         draw_text(screen, SEGMENTS[i][0], title_font, FG, (24, 18))
 
         # Current segment info (index/total only to avoid duplication)
@@ -298,6 +326,85 @@ def run_gui():
         if i + 1 < total_segments:
             next_line = f"Next: {SEGMENTS[i+1][0]} ({format_time(SEGMENTS[i+1][1])})"
             draw_text(screen, next_line, small_font, FG, (24, 270))
+
+        # Timeline visualization (position within the entire demo)
+        tl_rect = pygame.Rect(24, 300, WIDTH - 48, 64)
+        pygame.draw.rect(screen, TL_BG, tl_rect, border_radius=8)
+
+        # Compute content width in pixels, auto-fit to viewport when possible
+        total_secs = sum(d for _, d in SEGMENTS)
+        GAP = 3  # gap between segments in px
+        nsegs = len(SEGMENTS)
+        gaps_total = max(0, (nsegs - 1) * GAP)
+        if total_secs > 0:
+            fit_px_per_sec = max(0.05, (tl_rect.width - gaps_total) / total_secs)
+        else:
+            fit_px_per_sec = TIMELINE_PX_PER_SEC
+        px_per_sec = max(TIMELINE_PX_PER_SEC, fit_px_per_sec)
+        content_w = int(total_secs * px_per_sec + gaps_total)
+
+        # Current absolute elapsed seconds
+        elapsed_before = sum(d for _, d in SEGMENTS[:i])
+        if completed_until:
+            elapsed_in_current = duration
+        else:
+            elapsed_in_current = max(0.0, min(duration, duration - max(0.0, remaining)))
+        elapsed_total = elapsed_before + elapsed_in_current
+
+        # Desired scroll to keep the current position centered
+        desired_scroll = (elapsed_total * px_per_sec) - (tl_rect.width / 2)
+        max_scroll = max(0, content_w - tl_rect.width)
+        desired_scroll = max(0, min(max_scroll, desired_scroll))
+        timeline_scroll_x += (desired_scroll - timeline_scroll_x) * TIMELINE_SCROLL_SMOOTH
+
+        # Clip to timeline area while drawing segments
+        prev_clip = screen.get_clip()
+        screen.set_clip(tl_rect.inflate(-2, -2))
+
+        # Draw segments as proportional blocks
+        cursor_x = tl_rect.left - int(timeline_scroll_x)
+        for idx, (_, secs) in enumerate(SEGMENTS):
+            seg_w = max(1, int(secs * px_per_sec))
+            seg_rect = pygame.Rect(cursor_x, tl_rect.top + 6, seg_w, tl_rect.height - 12)
+
+            # Only draw if intersects viewport
+            if seg_rect.right >= tl_rect.left and seg_rect.left <= tl_rect.right:
+                if idx < i:
+                    color = TL_SEG_DONE
+                elif idx == i:
+                    color = TL_SEG_CURRENT
+                else:
+                    color = TL_SEG
+                pygame.draw.rect(screen, color, seg_rect, border_radius=6)
+
+                # For current segment, draw inner progress fill
+                if idx == i and secs > 0:
+                    frac = (elapsed_in_current / secs)
+                    frac = max(0.0, min(1.0, frac))
+                    inner = seg_rect.inflate(-4, -4)
+                    fill_w = int(inner.width * frac)
+                    if fill_w > 0:
+                        fill_rect = pygame.Rect(inner.left, inner.top, fill_w, inner.height)
+                        pygame.draw.rect(screen, ACCENT, fill_rect, border_radius=6)
+
+            cursor_x += seg_w + GAP  # gap between segments
+
+        # Draw current position marker line (account for gaps)
+        marker_x = tl_rect.left - int(timeline_scroll_x)
+        # advance through completed segments
+        for k in range(i):
+            marker_x += int(SEGMENTS[k][1] * px_per_sec) + GAP
+        # advance within current segment
+        if i < nsegs:
+            marker_x += int(min(SEGMENTS[i][1] * px_per_sec, elapsed_in_current * px_per_sec))
+        x_now = marker_x
+        pygame.draw.line(screen, TL_MARK, (x_now, tl_rect.top + 2), (x_now, tl_rect.bottom - 2), 2)
+
+        # Outline
+        pygame.draw.rect(screen, ACCENT_DIM, tl_rect, width=2, border_radius=8)
+
+        # Restore clip
+        screen.set_clip(prev_clip)
 
         # Controls
         controls = "Space=Pause  n=Next  p=Prev  +=+10s  -=-10s  m=Mute  q/Esc=Quit"
