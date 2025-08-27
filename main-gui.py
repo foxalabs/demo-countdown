@@ -751,6 +751,13 @@ def run_gui():
                         fill_rect = pygame.Rect(inner.left, inner.top, fill_w, inner.height)
                         pygame.draw.rect(screen, ACCENT, fill_rect, border_radius=6)
 
+                # Center segment number if there is enough space
+                if seg_rect.width >= 18:
+                    num_color = FG if idx == i else MUTE
+                    label = small_font.render(str(idx + 1), True, num_color)
+                    lr = label.get_rect(center=seg_rect.center)
+                    screen.blit(label, lr)
+
             cursor_x += seg_w + GAP  # gap between segments
 
         # Draw current position marker line (account for gaps)
