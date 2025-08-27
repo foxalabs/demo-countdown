@@ -208,6 +208,7 @@ def run_gui():
     ed_sel_col = 1  # 1=name, 2=duration
     ed_editing = False
     ed_buffer = ""
+    ed_caret = 0
     ed_message = "Esc/E: exit • Arrows: move • Left/Right/Tab: switch column • Enter/F2: edit • A: add • Del: delete • S: save"
 
     # Set initial caption to segment name if available
@@ -234,9 +235,14 @@ def run_gui():
                     running = False
                 elif ev.type == pygame.KEYDOWN:
                     key = ev.key
-                    if key in (pygame.K_ESCAPE, pygame.K_e):
+                    if not ed_editing and key in (pygame.K_ESCAPE, pygame.K_e):
                         # Exit editor (don't quit app)
                         editor_mode = False
+                        try:
+                            import pygame as _pg
+                            _pg.key.stop_text_input()
+                        except Exception:
+                            pass
                         break
                     if ed_editing:
                         if key in (pygame.K_RETURN, pygame.K_KP_ENTER):
@@ -265,28 +271,136 @@ def run_gui():
                                 _pg.key.stop_text_input()
                             except Exception:
                                 pass
+                            ed_buffer = ""
+                            ed_caret = 0
+                        elif key == pygame.K_ESCAPE:
+                            # Cancel edit
+                            ed_editing = False
+                            try:
+                                import pygame as _pg
+                                _pg.key.stop_text_input()
+                            except Exception:
+                                pass
+                            ed_buffer = ""
+                            ed_caret = 0
                         elif key == pygame.K_BACKSPACE:
-                            ed_buffer = ed_buffer[:-1]
-                        else:
-                            ch = ev.unicode
-                            if ch:
-                                ed_buffer += ch
+                            if ed_caret > 0:
+                                ed_buffer = ed_buffer[:ed_caret-1] + ed_buffer[ed_caret:]
+                                ed_caret -= 1
+                        elif key == pygame.K_DELETE:
+                            if ed_caret < len(ed_buffer):
+                                ed_buffer = ed_buffer[:ed_caret] + ed_buffer[ed_caret+1:]
+                        elif key == pygame.K_LEFT:
+                            ed_caret = max(0, ed_caret - 1)
+                        elif key == pygame.K_RIGHT:
+                            ed_caret = min(len(ed_buffer), ed_caret + 1)
+                        elif key == pygame.K_HOME:
+                            ed_caret = 0
+                        elif key == pygame.K_END:
+                            ed_caret = len(ed_buffer)
+                        elif key == pygame.K_UP:
+                            # Commit and move to previous row
+                            if 0 <= ed_sel_row < total_segments:
+                                nm, secs = SEGMENTS[ed_sel_row]
+                                if ed_sel_col == 1:
+                                    nm = ed_buffer.strip() or nm
+                                else:
+                                    try:
+                                        secs = parse_duration(ed_buffer.strip())
+                                    except Exception:
+                                        pass
+                                SEGMENTS[ed_sel_row] = (nm, secs)
+                            ed_sel_row = max(0, ed_sel_row - 1)
+                            ed_editing = False
+                            ed_buffer = ""
+                            ed_caret = 0
+                            try:
+                                import pygame as _pg
+                                _pg.key.stop_text_input()
+                            except Exception:
+                                pass
+                        elif key == pygame.K_DOWN:
+                            # Commit and move to next row
+                            if 0 <= ed_sel_row < total_segments:
+                                nm, secs = SEGMENTS[ed_sel_row]
+                                if ed_sel_col == 1:
+                                    nm = ed_buffer.strip() or nm
+                                else:
+                                    try:
+                                        secs = parse_duration(ed_buffer.strip())
+                                    except Exception:
+                                        pass
+                                SEGMENTS[ed_sel_row] = (nm, secs)
+                            ed_sel_row = min(total_segments - 1, ed_sel_row + 1)
+                            ed_editing = False
+                            ed_buffer = ""
+                            ed_caret = 0
+                            try:
+                                import pygame as _pg
+                                _pg.key.stop_text_input()
+                            except Exception:
+                                pass
+                        elif key == pygame.K_TAB:
+                            # Commit and move to next cell (wrap)
+                            if 0 <= ed_sel_row < total_segments:
+                                nm, secs = SEGMENTS[ed_sel_row]
+                                if ed_sel_col == 1:
+                                    nm = ed_buffer.strip() or nm
+                                else:
+                                    try:
+                                        secs = parse_duration(ed_buffer.strip())
+                                    except Exception:
+                                        pass
+                                SEGMENTS[ed_sel_row] = (nm, secs)
+                            if ed_sel_col == 1:
+                                ed_sel_col = 2
+                            else:
+                                ed_sel_col = 1
+                                ed_sel_row = min(total_segments - 1, ed_sel_row + 1)
+                            ed_editing = False
+                            ed_buffer = ""
+                            ed_caret = 0
+                            try:
+                                import pygame as _pg
+                                _pg.key.stop_text_input()
+                            except Exception:
+                                pass
                     else:
                         if key == pygame.K_UP:
                             ed_sel_row = max(0, ed_sel_row - 1)
                         elif key == pygame.K_DOWN:
                             ed_sel_row = min(total_segments - 1, ed_sel_row + 1)
-                        elif key in (pygame.K_LEFT, pygame.K_RIGHT, pygame.K_TAB):
+                        elif key in (pygame.K_LEFT, pygame.K_RIGHT):
+                            # Switch column only when not editing
                             ed_sel_col = 1 if ed_sel_col == 2 else 2
+                        elif key == pygame.K_TAB:
+                            # Move to next cell (wrap to next row)
+                            if ed_sel_col == 1:
+                                ed_sel_col = 2
+                            else:
+                                ed_sel_col = 1
+                                ed_sel_row = min(total_segments - 1, ed_sel_row + 1)
                         elif key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_F2):
                             cur = SEGMENTS[ed_sel_row][0 if ed_sel_col == 1 else 1]
-                            ed_buffer = str(cur)
+                            # Pre-fill buffer; format numeric as mm:ss or hh:mm:ss
+                            if ed_sel_col == 2:
+                                total = int(cur)
+                                h = total // 3600
+                                m = (total % 3600) // 60
+                                s = total % 60
+                                if h > 0:
+                                    ed_buffer = f"{h:02d}:{m:02d}:{s:02d}"
+                                else:
+                                    ed_buffer = f"{m:02d}:{s:02d}"
+                            else:
+                                ed_buffer = str(cur)
                             ed_editing = True
                             try:
                                 import pygame as _pg
                                 _pg.key.start_text_input()
                             except Exception:
                                 pass
+                            ed_caret = len(ed_buffer)
                         elif key == pygame.K_a:
                             SEGMENTS.insert(ed_sel_row + 1, ("New Segment", 60))
                             total_segments = len(SEGMENTS)
@@ -306,17 +420,39 @@ def run_gui():
                             paused = True
                         elif key == pygame.K_s:
                             try:
+                                # Write file
                                 with open(_SEGMENTS_FILE, "w", encoding="utf-8", newline="") as f:
                                     f.write("name,duration\n")
                                     for nm, secs in SEGMENTS:
                                         m, s = divmod(int(secs), 60)
                                         f.write(f"{nm},{m:02d}:{s:02d}\n")
-                                ed_message = f"Saved: {_SEGMENTS_FILE}"
+                                # Reload from disk so any outside changes/normalization are reflected
+                                reloaded = load_segments(_SEGMENTS_FILE)
+                                if reloaded:
+                                    SEGMENTS[:] = reloaded
+                                # Refresh derived state
+                                total_segments = len(SEGMENTS)
+                                ed_sel_row = max(0, min(ed_sel_row, total_segments - 1))
+                                i = max(0, min(i, total_segments - 1)) if total_segments > 0 else 0
+                                duration = float(SEGMENTS[i][1]) if total_segments > 0 else 0
+                                remaining = float(duration)
+                                paused = True
+                                completed_until = 0.0
+                                try:
+                                    import pygame as _pg
+                                    if total_segments > 0:
+                                        _pg.display.set_caption(f"{SEGMENTS[i][0]} — Demo Countdown")
+                                except Exception:
+                                    pass
+                                ed_message = f"Saved + reloaded: {_SEGMENTS_FILE}"
                             except Exception as e:
                                 ed_message = f"Save failed: {e}"
                 elif ev.type == pygame.TEXTINPUT and ed_editing:
-                    # Robust text input for names/durations
-                    ed_buffer += ev.text
+                    # Text input only inserts visible characters; ignore tabs
+                    text = ev.text.replace("\t", "")
+                    if text:
+                        ed_buffer = ed_buffer[:ed_caret] + text + ed_buffer[ed_caret:]
+                        ed_caret += len(text)
         else:
             # Normal play mode input
             for event in events:
@@ -425,19 +561,48 @@ def run_gui():
             row_h = 30
             for ridx, (nm, secs) in enumerate(SEGMENTS):
                 is_sel = (ridx == ed_sel_row)
-                color = ACCENT_DIM if is_sel else TL_BG
-                pygame.draw.rect(screen, color, pygame.Rect(20, row_y - 4, WIDTH - 40, row_h), border_radius=6)
+                row_rect = pygame.Rect(20, row_y - 4, WIDTH - 40, row_h)
+                # Base row background
+                pygame.draw.rect(screen, TL_BG, row_rect, border_radius=6)
+                # Selected row outline (subtle)
+                if is_sel:
+                    pygame.draw.rect(screen, ACCENT_DIM, row_rect, width=2, border_radius=6)
+
+                # Column rectangles to highlight the active cell
+                name_w = max(80, (x_dur - x_name) - 20)
+                dur_w = max(80, (WIDTH - 40) - (x_dur - 20) - 20)
+                name_rect = pygame.Rect(x_name - 6, row_y - 4, name_w, row_h)
+                dur_rect = pygame.Rect(x_dur - 6, row_y - 4, dur_w, row_h)
+                if is_sel:
+                    if ed_sel_col == 1:
+                        pygame.draw.rect(screen, TL_SEG_CURRENT, name_rect, border_radius=6)
+                    else:
+                        pygame.draw.rect(screen, TL_SEG_CURRENT, dur_rect, border_radius=6)
+
+                # Row number
                 draw_text(screen, str(ridx + 1), small_font, FG, (x_num, row_y))
+
+                # Text content and caret when editing
+                # Name cell
                 if is_sel and ed_editing and ed_sel_col == 1:
-                    draw_text(screen, ed_buffer + "|", small_font, FG, (x_name, row_y))
+                    draw_text(screen, ed_buffer, small_font, FG, (x_name, row_y))
+                    caret_off = small_font.size(ed_buffer[:ed_caret])[0]
+                    cx = x_name + caret_off
+                    pygame.draw.line(screen, FG, (cx, row_y), (cx, row_y + small_font.get_height() - 6), 1)
                 else:
                     draw_text(screen, nm, small_font, FG, (x_name, row_y))
+
+                # Duration cell
                 m, s = divmod(int(secs), 60)
                 dtxt = f"{m:02d}:{s:02d}"
                 if is_sel and ed_editing and ed_sel_col == 2:
-                    draw_text(screen, ed_buffer + "|", small_font, FG, (x_dur, row_y))
+                    draw_text(screen, ed_buffer, small_font, FG, (x_dur, row_y))
+                    caret_off = small_font.size(ed_buffer[:ed_caret])[0]
+                    cx = x_dur + caret_off
+                    pygame.draw.line(screen, FG, (cx, row_y), (cx, row_y + small_font.get_height() - 6), 1)
                 else:
                     draw_text(screen, dtxt, small_font, FG, (x_dur, row_y))
+
                 row_y += row_h
 
             pygame.display.flip()

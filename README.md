@@ -1,6 +1,6 @@
 # Demo Countdown Timer
 
-A simple, cross‑platform terminal countdown timer for demos and talks. Step through named segments, see a progress bar and remaining time, and control the flow with quick hotkeys.
+A friendly, cross‑platform countdown timer for demos and talks. Step through named segments, see remaining and total time, visualize the whole plan on a timeline, and tweak segments on the fly with an in‑app editor.
 
 
 ![Demo Countdown GUI](images/screen1.png)
@@ -8,12 +8,18 @@ A simple, cross‑platform terminal countdown timer for demos and talks. Step th
 ## Features
 
 - Multi-segment countdown with names and durations
-- Shows remaining time and total for the segment
-- Live "Demo Left" total across all remaining segments
-- Hotkeys: pause/resume, next/prev, +/- 10s, mute beep, quit
+- Remaining and total for the current segment, plus live "Demo Left" for the rest
+- GUI timeline of all segments with auto-fit and smooth centering on “now”
+- Visible marker for current position; segment index labels on the timeline
+- Start paused; window title shows the current segment
+- Summary screen at the end (planned vs elapsed, delta)
+- In‑app Editor (Excel‑style): navigate cells, press Enter to edit, Enter to commit
+- Editor supports Name and Duration; Duration accepts `mm:ss` or `hh:mm:ss`
+- Save from the editor writes `segments.txt` and reloads it immediately
+- Hotkeys: pause/resume, next/prev, +/- 10s, mute beep, edit, quit
 - CLI works on Windows, macOS, and Linux (standard library only)
 - Optional GUI for Windows using pygame
- - External segment configuration via `segments.txt`
+- External segment configuration via `segments.txt`
 
 ## Usage (CLI)
 
@@ -56,7 +62,21 @@ python .\main-gui.py
 - + or Numpad +: Add 10s to current segment
 - - or Numpad -: Subtract 10s from current segment (floors at 5s)
 - m: Mute/unmute beep
-- q or Esc: Quit
+- e: Open/close the in‑app editor
+- q or Esc: Quit (Esc exits the editor first)
+
+### In‑app editor (Excel‑style)
+
+- Arrows Up/Down: move rows
+- Left/Right: switch between Name and Duration columns (when not editing)
+- Enter/F2: start editing the selected cell; Enter commits
+- While editing: Left/Right/Home/End move the caret; Backspace/Delete edit text
+- While editing: Up/Down commits and moves to previous/next row; Tab commits and moves to the next cell
+- Esc (while editing): cancel edit; Esc/E (when not editing): close the editor
+
+Notes:
+- Duration edit pre-fills as `mm:ss` or `hh:mm:ss` and is parsed back on commit
+- Press S in the editor to save; the app reloads `segments.txt` immediately
 
 ## Configure segments
 
@@ -123,8 +143,11 @@ pyinstaller --noconsole --onefile --name demo-countdown-gui .\main-gui.py
 The executable will be in `dist\demo-countdown-gui.exe`.
 
 Using segments.txt with the .exe:
-- Place `segments.txt` next to the `.exe` (recommended), or in the current working directory.
+- Lookup order: current working directory → folder next to the `.exe` → embedded data (`_MEIPASS`) → source folder
+- Place `segments.txt` next to the `.exe` (recommended), or in the current working directory
 - You can also embed a default via `--add-data`: `--add-data "segments.txt;."`
+
+Tip: If you edit and save from the in‑app editor, the file is written and then reloaded immediately so the GUI and timings update at once.
 
 ## Contributing
 

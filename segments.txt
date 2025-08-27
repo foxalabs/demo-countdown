@@ -1,10 +1,8 @@
-# Demo segments configuration
-# Format: Segment Name,DurationInSeconds
-# Example:
-Introduction,60
-Overview,45
-Feature Demonstration,90
-Technical Details,75
-Q&A Session,30
-Summary,40
-Closing Remarks,20
+name,duration
+Introduction,01:00
+Overview,00:45
+Feature Demonstration,01:30
+Technical Details,01:15
+Q&A Session,00:20
+Summary,00:40
+Closing Remarks,00:20
